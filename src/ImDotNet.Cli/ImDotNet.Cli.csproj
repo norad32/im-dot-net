@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>CLI frontend</Description>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ImDotNet.Core\ImDotNet.Core.csproj" />
+    <PackageReference Include="Spectre.Console" Version="0.51.1" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.51.1" />
+  </ItemGroup>
+</Project>
