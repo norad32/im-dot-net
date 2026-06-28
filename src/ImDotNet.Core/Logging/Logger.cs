@@ -1,8 +1,6 @@
-using log4net;
-using log4net.Appender;
-using log4net.Core;
-using log4net.Layout;
-using log4net.Repository.Hierarchy;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -14,74 +12,36 @@ public static class Logger
     private static readonly object _lock = new();
     private static bool _configured;
     private static string? _appName;
-    private static Hierarchy? _repo;
-    private static PatternLayout? _layout;
-    private static Level _current = Level.ERROR;
 
-    // preserved external sinks (e.g., GUI)
-    private static readonly List<IAppender> _sinks = new();
-    private static GuiAppender? _guiAppender;
-
-    // ---------- public API ----------
+    // Serilog level switch — lets us change level at runtime without rebuilding
+    private static readonly LoggingLevelSwitch _levelSwitch = new(LogEventLevel.Error);
 
     public static void Setup(Level level = Level.ERROR)
     {
         lock (_lock)
         {
-            _current = level;
-            _repo = (Hierarchy)LogManager.GetRepository(Assembly.GetExecutingAssembly());
-            var root = _repo.Root;
-            root.RemoveAllAppenders();
-
-            _layout = BuildLayout();
-            var console = BuildConsoleAppender(_layout, level);
-            var rolling = BuildRollingFileAppender(_layout, level);
-
-            var rebuilt = new List<IAppender> { console, rolling };
-
-            foreach (var sink in _sinks.ToArray())
-            {
-                TrySetAppenderLevelAndLayout(sink, level, _layout);
-                rebuilt.Add(sink);
-            }
-
-            // Truly async: forward to real appenders on a background worker thread
-            var async = new log4net.Appender.BufferingForwardingAppender
-            {
-                Name = "BufferingAppender",
-                Fix = FixFlags.All,
-                // Optional tuning (defaults are fine):
-                // BufferSize = 512,
-                // Lossy = false,
-                // LossyEvaluator = new log4net.Core.LevelEvaluator(ToLog4Level(Level.ERROR))
-            };
-            foreach (IAppender a in rebuilt)
-                async.AddAppender(a);
-            async.ActivateOptions();
-
-            root.AddAppender(async);
-            root.Level = ToLog4Level(level);
-            _repo.Configured = true;
+            _levelSwitch.MinimumLevel = ToSerilogLevel(level);
+            BuildAndApply(includeGui: false);
             _configured = true;
         }
     }
 
-    public static GuiAppender SetupGui(Level level = Level.ERROR)
+    public static GuiSink SetupGui(Level level = Level.ERROR)
     {
         lock (_lock)
         {
             if (!_configured)
-                throw new InvalidOperationException("Call AppLogger.Setup() before SetupGui().");
+                throw new InvalidOperationException("Call Logger.Setup() before SetupGui().");
 
-            _guiAppender ??= new GuiAppender { Name = "ImGui" };
-            TrySetAppenderLevelAndLayout(_guiAppender, level, _layout ?? BuildLayout());
+            // Debug info (mirrors your original)
+            Console.WriteLine($"[DEBUG] AppName: {AppName}");
+            Console.WriteLine($"[DEBUG] LogPath: {GetLogPath()}");
+            Console.WriteLine($"[DEBUG] LogDir:  {GetUserLogDir(AppName)}");
 
-            _sinks.RemoveAll(s => s is GuiAppender);
-            _sinks.Add(_guiAppender);
+            _levelSwitch.MinimumLevel = ToSerilogLevel(level);
+            BuildAndApply(includeGui: true);
 
-            // rebuild to include GUI sink
-            Setup(_current);
-            return _guiAppender;
+            return GuiSink.Instance;
         }
     }
 
@@ -89,7 +49,7 @@ public static class Logger
     {
         lock (_lock)
         {
-            _repo?.Shutdown();
+            Serilog.Log.CloseAndFlush();
             _configured = false;
         }
     }
@@ -98,129 +58,96 @@ public static class Logger
     {
         lock (_lock)
         {
-            _current = level;
-            if (_repo is null) return;
-
-            _repo.Root.Level = ToLog4Level(level);
-            foreach (IAppender appender in EnumerateAllAppenders())
-                TrySetAppenderLevelAndLayout(appender, level, _layout ?? BuildLayout());
+            // LoggingLevelSwitch updates all sinks live — no rebuild needed
+            _levelSwitch.MinimumLevel = ToSerilogLevel(level);
         }
     }
 
-    // Get app logger or a child logger (category)
-    public static ILog Get(Type t) => Get(t.FullName ?? t.Name);
-    public static ILog Get(string? name = null)
+    /// <summary>
+    /// Returns a Serilog ILogger scoped to the given type.
+    /// </summary>
+    public static ILogger Get(Type t) => Get(t.FullName ?? t.Name);
+
+    public static ILogger Get(string? name = null)
     {
         if (!_configured)
-            Setup(Level.ERROR);
+            Setup(Level.DEBUG);
 
         var cat = string.IsNullOrWhiteSpace(name) ? AppName : $"{AppName}.{name}";
-        return LogManager.GetLogger(Assembly.GetExecutingAssembly(), cat);
+        return Serilog.Log.Logger.ForContext("SourceContext", cat);
     }
 
-    // ---------- helpers ----------
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
 
-    private static IEnumerable<IAppender> EnumerateAllAppenders()
+    private static void BuildAndApply(bool includeGui)
     {
-        if (_repo is null) yield break;
-        foreach (var a in _repo.GetAppenders())
+        var logPath = GetLogPath();
+        var logDir = Path.GetDirectoryName(logPath)!;
+
+        Console.WriteLine($"[DEBUG] Creating file sink");
+        Console.WriteLine($"[DEBUG] FilePath: {logPath}");
+        Console.WriteLine($"[DEBUG] DirPath:  {logDir}");
+
+        try
         {
-            yield return a;
-
-            // AsyncForwardingAppender derives from ForwardingAppender, so this covers both.
-            if (a is ForwardingAppender fwd)
-            {
-                foreach (IAppender inner in fwd.Appenders)
-                    yield return inner;
-            }
-
-            if (a is BufferingForwardingAppender bfwd)
-            {
-                foreach (IAppender inner in bfwd.Appenders)
-                    yield return inner;
-            }
+            Directory.CreateDirectory(logDir);
+            Console.WriteLine($"[DEBUG] Directory created successfully");
         }
-    }
-
-    private static void TrySetAppenderLevelAndLayout(IAppender appender, Level level, PatternLayout layout)
-    {
-        if (appender is AppenderSkeleton sk)
+        catch (Exception ex)
         {
-            sk.Threshold = ToLog4Level(level);
-            sk.Layout = layout;
-            sk.ActivateOptions();
+            Console.WriteLine($"[DEBUG] Directory creation failed: {ex.Message}");
         }
+
+        const string template =
+            "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} | {Level,-8} | {SourceContext} - {Message:lj}{NewLine}{Exception}";
+
+        var config = new LoggerConfiguration()
+            .MinimumLevel.ControlledBy(_levelSwitch)
+            .Enrich.FromLogContext()
+            .WriteTo.Console(outputTemplate: template)
+            .WriteTo.File(
+                path: logPath,
+                outputTemplate: template,
+                rollOnFileSizeLimit: true,
+                fileSizeLimitBytes: 1 * 1024 * 1024,   // 1 MB
+                retainedFileCountLimit: 3,
+                encoding: System.Text.Encoding.UTF8,
+                shared: true                // MinimalLock equivalent
+            );
+
+        if (includeGui)
+            config.WriteTo.Sink(GuiSink.Instance);
+
+        // Close previous logger before replacing
+        Serilog.Log.CloseAndFlush();
+        Serilog.Log.Logger = config.CreateLogger();
+
+        Console.WriteLine($"[DEBUG] Logger built successfully");
     }
 
-    private static PatternLayout BuildLayout()
-    {
-        // Python: "{asctime}.{msecs:03} | {levelname:8s} | {name}:{lineno} | {message}"
-        // Approx:
-        return Activate(new PatternLayout("%date{yyyy-MM-dd HH:mm:ss.fff} | %-8level | %logger - %message%newline"));
-    }
-
-    private static ConsoleAppender BuildConsoleAppender(PatternLayout layout, Level level)
-    {
-        return Activate(new ConsoleAppender
-        {
-            Layout = layout,
-            Target = "Console.Out",
-            Name = "Console",
-            Threshold = ToLog4Level(level),
-        });
-    }
-
-    private static RollingFileAppender BuildRollingFileAppender(PatternLayout layout, Level level)
-    {
-        var filePath = GetLogPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-
-        return Activate(new RollingFileAppender
-        {
-            Name = "RollingFile",
-            File = filePath,
-            AppendToFile = true,
-            RollingStyle = RollingFileAppender.RollingMode.Size,
-            MaximumFileSize = "1MB",
-            MaxSizeRollBackups = 3,
-            StaticLogFileName = true,
-            LockingModel = new FileAppender.MinimalLock(),
-            Encoding = System.Text.Encoding.UTF8,
-            Layout = layout,
-            Threshold = ToLog4Level(level),
-        });
-    }
-
-    private static T Activate<T>(T appender) where T : IOptionHandler
-    {
-        appender.ActivateOptions();
-        return appender;
-    }
-
-    private static string GetLogPath()
-    {
-        var baseDir = GetUserLogDir(AppName);
-        return Path.Combine(baseDir, $"{AppName}.log");
-    }
+    private static string GetLogPath() =>
+        Path.Combine(GetUserLogDir(AppName), $"{AppName}.log");
 
     private static string GetUserLogDir(string app)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return Path.Combine(root, app, "Logs");
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Library", "Logs");
-            return Path.Combine(root, app);
-        }
-        else
-        {
-            var root = Environment.GetEnvironmentVariable("XDG_STATE_HOME")
-                       ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state");
-            return Path.Combine(root, app, "logs");
-        }
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                app, "Logs");
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.Personal),
+                "Library", "Logs", app);
+
+        return Path.Combine(
+            Environment.GetEnvironmentVariable("XDG_STATE_HOME")
+                ?? Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    ".local", "state"),
+            app, "logs");
     }
 
     private static string AppName
@@ -235,13 +162,13 @@ public static class Logger
         }
     }
 
-    private static log4net.Core.Level ToLog4Level(Level level) => level switch
+    private static LogEventLevel ToSerilogLevel(Level level) => level switch
     {
-        Level.CRITICAL => log4net.Core.Level.Fatal,
-        Level.ERROR    => log4net.Core.Level.Error,
-        Level.WARNING  => log4net.Core.Level.Warn,
-        Level.INFO     => log4net.Core.Level.Info,
-        Level.DEBUG    => log4net.Core.Level.Debug,
-        _              => log4net.Core.Level.All,
+        Level.CRITICAL => LogEventLevel.Fatal,
+        Level.ERROR => LogEventLevel.Error,
+        Level.WARNING => LogEventLevel.Warning,
+        Level.INFO => LogEventLevel.Information,
+        Level.DEBUG => LogEventLevel.Debug,
+        _ => LogEventLevel.Verbose
     };
 }

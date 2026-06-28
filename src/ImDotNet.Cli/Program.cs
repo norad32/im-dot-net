@@ -11,7 +11,7 @@ public sealed class Program
         {
             ImDotNet.Core.Logging.Logger.Setup(ImDotNet.Core.Logging.Level.ERROR); // minimal noise
             var version = GetVersion();
-            ImDotNet.Core.Logging.Logger.Get(typeof(Program)).InfoFormat("Version: {Version}", version);
+            ImDotNet.Core.Logging.Logger.Get(typeof(Program)).Information("Version: {Version}", version);
             AnsiConsole.WriteLine(version);
             return 0;
         }
@@ -21,15 +21,11 @@ public sealed class Program
         {
             config.SetApplicationName("Im .NET");
 
-            // Commands
-            // config.AddCommand<Gui>("gui")
-            //       .WithDescription("Launch the GUI");
+            config.AddCommand<Gui>("gui")
+                  .WithDescription("Launch the GUI");
 
             config.AddCommand<Check>("check")
                   .WithDescription("Quick self-check and exit");
-
-            // Default to 'gui' when no subcommand is provided
-            // config.SetDefaultCommand<Gui>();
         });
 
         try
