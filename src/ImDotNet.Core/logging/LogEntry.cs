@@ -1,5 +1,3 @@
-using System;
-
 namespace ImDotNet.Core.Logging;
 
 public sealed record LogEntry(
@@ -10,5 +8,6 @@ public sealed record LogEntry(
     string? Exception,
     string? ThreadId,
     string? File,
-    int? Line
+    int? Line,
+        string? Formatted = null
 );

@@ -14,7 +14,7 @@ public sealed class GuiSink : ILogEventSink
     {
         lock (_lock)
         {
-            if (_entries.Count == 0) return new List<LogEntry>();
+            if (_entries.Count == 0) return [];
             var drained = new List<LogEntry>(_entries);
             _entries.Clear();
             return drained;
@@ -28,10 +28,27 @@ public sealed class GuiSink : ILogEventSink
 
     public void Emit(LogEvent logEvent)
     {
-        // Try to get source context (logger name)
         var loggerName = logEvent.Properties.TryGetValue("SourceContext", out var sc)
             ? sc.ToString().Trim('"')
             : "root";
+
+        var rawFile = logEvent.Properties.TryGetValue("SourceFile", out var sf)
+            ? sf.ToString().Trim('"')
+            : null;
+
+        var rawLine = logEvent.Properties.TryGetValue("LineNumber", out var ln)
+            && int.TryParse(ln.ToString(), out var lineNum)
+            ? lineNum
+            : (int?)null;
+
+        bool hasLocation = !string.IsNullOrWhiteSpace(rawFile)
+            && rawFile != "unknown"
+            && rawLine is not null
+            && rawLine > 0;
+
+        var threadId = logEvent.Properties.TryGetValue("ThreadId", out var tid)
+            ? tid.ToString()
+            : null;
 
         var entry = new LogEntry(
             Timestamp: logEvent.Timestamp.DateTime,
@@ -39,17 +56,17 @@ public sealed class GuiSink : ILogEventSink
             Logger: loggerName,
             Message: logEvent.RenderMessage(),
             Exception: logEvent.Exception?.ToString(),
-            ThreadId: null, // Serilog doesn't capture thread by default
-            File: null, // requires Serilog.Enrichers.* or caller info
-            Line: null
+            ThreadId: threadId,
+            File: hasLocation ? rawFile : null,
+            Line: hasLocation ? rawLine : null
         );
 
-        lock (_lock) { _entries.Add(entry); }
+        lock (_lock) { _entries.Add(entry with { Formatted = Format(entry) }); }
     }
 
     private static Level MapLevel(LogEventLevel l) => l switch
     {
-        LogEventLevel.Fatal => Level.CRITICAL,
+        LogEventLevel.Fatal => Level.FATAL,
         LogEventLevel.Error => Level.ERROR,
         LogEventLevel.Warning => Level.WARNING,
         LogEventLevel.Information => Level.INFO,
@@ -57,4 +74,13 @@ public sealed class GuiSink : ILogEventSink
         LogEventLevel.Verbose => Level.DEBUG,
         _ => Level.NOTSET
     };
+
+    private static string Format(LogEntry e)
+    {
+        var location = e.File is not null && e.Line is not null
+            ? $" ({Path.GetFileName(e.File)}:{e.Line})"
+            : string.Empty;
+
+        return $"{e.Timestamp:yyyy-MM-dd HH:mm:ss.fff} | {e.Level,-8} | Thread:{e.ThreadId} | {e.Logger} | {e.Message}{location}";
+    }
 }

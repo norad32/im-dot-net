@@ -1,52 +1,55 @@
 using ImDotNet.Cli.Commands;
+using ImDotNet.Core.Logging;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Reflection;
 
-public sealed class Program
+public class Program
 {
     public static int Main(string[] args)
     {
-        if (args.Contains("--version") || args.Contains("-v"))
-        {
-            ImDotNet.Core.Logging.Logger.Setup(ImDotNet.Core.Logging.Level.ERROR); // minimal noise
-            var version = GetVersion();
-            ImDotNet.Core.Logging.Logger.Get(typeof(Program)).Information("Version: {Version}", version);
-            AnsiConsole.WriteLine(version);
-            return 0;
-        }
+        Logger.Setup(Level.INFO);
 
         var app = new CommandApp();
         app.Configure(config =>
         {
-            config.SetApplicationName("Im .NET");
+            config.SetApplicationName("imdotnet");
+            config.SetApplicationVersion(GetVersion());
+            config.SetInterceptor(new LoggingInterceptor());
 
-            config.AddCommand<Gui>("gui")
+            config.AddCommand<GuiCommand>("gui")
                   .WithDescription("Launch the GUI");
 
-            config.AddCommand<Check>("check")
+            config.AddCommand<CheckCommand>("check")
                   .WithDescription("Quick self-check and exit");
         });
 
         try
         {
+            if (args.Length == 0)
+            {
+                args = ["gui"];
+            }
+
             return app.Run(args);
         }
         catch (CommandParseException ex)
         {
-            AnsiConsole.MarkupLine($"[red]Error:[/] {ex.Message}");
-            return -1;
+            AnsiConsole.MarkupLine($"[red]Parse error:[/] {ex.Message}");
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
+            return 2;
         }
     }
 
-    private static string GetVersion()
-    {
-        // Prefer InformationalVersion (can carry "+local" suffix), fall back to FileVersion.
-        var asm = Assembly.GetExecutingAssembly();
-        var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (!string.IsNullOrWhiteSpace(info))
-            return info!;
-        var file = asm.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
-        return string.IsNullOrWhiteSpace(file) ? "0.0.0+local" : file!;
-    }
+    private static string GetVersion() =>
+        Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+            is { Length: > 0 } info
+            ? info
+            : "0.0.0+local";
 }

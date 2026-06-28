@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ImDotNet.Gui\ImDotNet.Gui.csproj" />
     <ProjectReference Include="..\ImDotNet.Core\ImDotNet.Core.csproj" />
     <PackageReference Include="Spectre.Console" Version="0.51.1" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.51.1" />
