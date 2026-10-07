@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ImDotNet GUI",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build ImDotNet CLI",
+      "program": "${workspaceFolder}/src/ImDotNet.Cli/bin/Debug/net10.0/ImDotNet.dll",
+      "args": ["gui"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}
