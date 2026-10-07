@@ -1,6 +1,6 @@
 # I'm DotNet
 
-[![Tests & format](https://github.com/norad32/im-dot-net/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/norad32/im-dot-net/actions/workflows/test.yaml)
+[![Tests & format](https://github.com/norad32/im-dot-net/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/norad32/im-dot-net/actions/workflows/test-format.yaml)
 [![Release build](https://github.com/norad32/im-dot-net/actions/workflows/release.yaml/badge.svg)](https://github.com/norad32/im-dot-net/actions/workflows/release.yaml)
 
 A starter desktop GUI built with [ImGui.NET](https://github.com/ImGuiNET/ImGui.NET) and [Silk.NET](https://github.com/dotnet/Silk.NET). It includes a CLI, persistent GUI preferences, a GUI log panel, unit tests, and GitHub Actions checks. Requires the .NET 10 SDK.
