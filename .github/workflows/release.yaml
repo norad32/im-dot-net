@@ -1,0 +1,70 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build_linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish Linux x64
+        run: dotnet publish src/ImDotNet.Cli/ImDotNet.Cli.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/linux-x64
+      - name: Archive Linux executable
+        run: tar -czf artifacts/ImDotNet-linux-x64.tar.gz -C artifacts/linux-x64 .
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: linux-x64
+          path: artifacts/ImDotNet-linux-x64.tar.gz
+
+  build_windows:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish Windows x64
+        run: dotnet publish src/ImDotNet.Cli/ImDotNet.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/win-x64
+      - name: Archive Windows executable
+        run: cd artifacts/win-x64 && zip -qr ../ImDotNet-win-x64.zip .
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: win-x64
+          path: artifacts/ImDotNet-win-x64.zip
+
+  publish_release:
+    runs-on: ubuntu-latest
+    needs: [build_linux, build_windows]
+
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-x64
+          path: release_assets
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: win-x64
+          path: release_assets
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release_assets/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

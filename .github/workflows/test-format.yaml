@@ -1,0 +1,26 @@
+name: Test & Format
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test_and_format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Run tests
+        run: dotnet test ImDotNet.sln -c Release
+      - name: Check formatting
+        run: dotnet format whitespace ImDotNet.sln --verify-no-changes --no-restore
+      - name: Build with Roslyn analyzers
+        run: dotnet build ImDotNet.sln -c Release --no-restore
