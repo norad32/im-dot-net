@@ -7,13 +7,13 @@ namespace ImDotNet.Gui.Panels;
 
 public sealed class LogPanelState
 {
-    public bool Visible = false;
-    public bool AutoScroll = true;
+    public bool Visible { get; set; }
+    public bool AutoScroll { get; set; } = true;
 }
 
 public sealed class LogPanel
 {
-    public const string TOGGLE_KEY = "`";
+    public const string ToggleKey = "`";
     private const int MIN_HEIGHT = 148;
     private const int MAX_LOG_ENTRIES = 1024;
     private const float INITIAL_Y_FRACTION = 2f / 3f;  // 2/3 down from top
@@ -23,14 +23,14 @@ public sealed class LogPanel
     private readonly LogPanelState _state;
     private readonly Queue<LogEntry> _entries = new();
     private bool _wasAtBottom = true;
-    private bool _initialized = false;
+    private bool _initialized;
 
     public LogPanel(LogPanelState state)
     {
         _state = state ?? throw new ArgumentNullException(nameof(state));
 
-        if (string.IsNullOrEmpty(TOGGLE_KEY) || TOGGLE_KEY.Length != 1)
-            throw new InvalidOperationException($"{nameof(TOGGLE_KEY)} must be a single character");
+        if (string.IsNullOrEmpty(ToggleKey) || ToggleKey.Length != 1)
+            throw new InvalidOperationException($"{nameof(ToggleKey)} must be a single character");
     }
 
     public void HandleToggleKey(ImGuiIOPtr io)
@@ -45,14 +45,14 @@ public sealed class LogPanel
             for (int i = 0; i < io.InputQueueCharacters.Size; i++)
             {
                 char c = (char)io.InputQueueCharacters[i];
-                if (c == TOGGLE_KEY[0])
+                if (c == ToggleKey[0])
                 {
                     _state.Visible = !_state.Visible;
                     break;
                 }
             }
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             Log.Warning("Failed to handle toggle key: {Exception}", ex);
         }
@@ -67,7 +67,7 @@ public sealed class LogPanel
         if (sink == null)
         {
             ImGui.SetNextWindowViewport(ImGui.GetMainViewport().ID);
-            ImGui.Begin($"Logs ({TOGGLE_KEY})", ImGuiWindowFlags.NoSavedSettings);
+            ImGui.Begin($"Logs ({ToggleKey})", ImGuiWindowFlags.NoSavedSettings);
             ImGui.TextDisabled("Logging sink not initialized");
             ImGui.End();
             return;
@@ -112,7 +112,7 @@ public sealed class LogPanel
                   | ImGuiWindowFlags.NoDocking
                   | ImGuiWindowFlags.NoSavedSettings;
 
-        bool expanded = ImGui.Begin($"Logs ({TOGGLE_KEY})", flags);
+        bool expanded = ImGui.Begin($"Logs ({ToggleKey})", flags);
 
         if (!expanded)
         {

@@ -1,3 +1,4 @@
+using System.Globalization;
 using ImGuiNET;
 using ImDotNet.Core;
 using ImDotNet.Core.Logging;
@@ -27,7 +28,7 @@ public sealed class AppWindow : IDisposable
 
     public AppWindow()
     {
-        _log = Logger.Get(typeof(AppWindow));
+        _log = Logger.Get<AppWindow>();
         _state = State.Load();
         _logPanelState = new LogPanelState();
 
@@ -151,31 +152,31 @@ public sealed class AppWindow : IDisposable
             {
                 var trimmed = line.Trim();
 
-                if (trimmed == "[State]")
+                if (trimmed.Equals("[State]", StringComparison.Ordinal))
                 {
                     inStateSection = true;
                     continue;
                 }
 
-                if (trimmed.StartsWith("[") && inStateSection)
+                if (trimmed.StartsWith('[') && inStateSection)
                     break;
 
                 if (!inStateSection)
                     continue;
 
-                if (trimmed.StartsWith("logs_panel_visible="))
+                if (trimmed.StartsWith("logs_panel_visible=", StringComparison.Ordinal))
                 {
-                    _logPanelState.Visible = trimmed.EndsWith("1");
+                    _logPanelState.Visible = trimmed.EndsWith('1');
                 }
-                else if (trimmed.StartsWith("logs_autoscroll="))
+                else if (trimmed.StartsWith("logs_autoscroll=", StringComparison.Ordinal))
                 {
-                    _logPanelState.AutoScroll = trimmed.EndsWith("1");
+                    _logPanelState.AutoScroll = trimmed.EndsWith('1');
                 }
             }
 
             _log.Debug($"Loaded state from {configPath}");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.Warning("Could not read State from ini", ex);
         }
@@ -189,13 +190,13 @@ public sealed class AppWindow : IDisposable
 
             var sb = new StringBuilder();
             sb.AppendLine("[State]");
-            sb.AppendLine($"logs_panel_visible={(_logPanelState.Visible ? 1 : 0)}");
-            sb.AppendLine($"logs_autoscroll={(_logPanelState.AutoScroll ? 1 : 0)}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"logs_panel_visible={(_logPanelState.Visible ? 1 : 0)}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"logs_autoscroll={(_logPanelState.AutoScroll ? 1 : 0)}");
 
             File.WriteAllText(configPath, sb.ToString(), Encoding.UTF8);
             _log.Debug($"Saved state to {configPath}");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.Warning("Could not save State to ini", ex);
         }

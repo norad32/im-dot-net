@@ -8,7 +8,7 @@ public sealed class GuiCommand : Command<GlobalSettings>
 {
     public override int Execute(CommandContext context, GlobalSettings settings)
     {
-        var log = Logger.Get(typeof(GuiCommand));
+        var log = Logger.Get<GuiCommand>();
 
         try
         {
@@ -18,7 +18,7 @@ public sealed class GuiCommand : Command<GlobalSettings>
             window.Run();
             return 0;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
         {
             log.Error(ex, "GUI terminated unexpectedly");
             return 1;

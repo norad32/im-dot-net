@@ -4,10 +4,14 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Reflection;
 
-public class Program
+namespace ImDotNet.Cli;
+
+public static class Program
 {
     public static int Main(string[] args)
     {
+        ArgumentNullException.ThrowIfNull(args);
+
         Logger.Setup(Level.INFO);
 
         var app = new CommandApp();
@@ -38,7 +42,7 @@ public class Program
             AnsiConsole.MarkupLine($"[red]Parse error:[/] {ex.Message}");
             return 1;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
         {
             AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
             return 2;

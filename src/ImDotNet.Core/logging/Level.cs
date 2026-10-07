@@ -19,6 +19,8 @@ public static class LevelParser
 
     public static Level Parse(string text)
     {
+        ArgumentNullException.ThrowIfNull(text);
+
         if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var num))
         {
             return num switch

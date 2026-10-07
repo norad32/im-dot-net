@@ -1,3 +1,4 @@
+using System.Globalization;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
@@ -17,11 +18,13 @@ public static class Logger
 
     private const long MaxLogFileSize = 1 * 1024 * 1024; // 1 MB
     private const int RetainedLogCount = 3;
-    private const string OutputTemplate =
-        "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} | {Level,-8} | Thread:{ThreadId} | {SourceContext} | {Message:lj}{NewLine}{Exception}";
-
-    private const string OutputTemplateWithLocation =
+#if DEBUG
+    private const string ActiveOutputTemplate =
         "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} | {Level,-8} | Thread:{ThreadId} | {SourceContext} | {Message:lj} ({SourceFile}:{LineNumber}){NewLine}{Exception}";
+#else
+    private const string ActiveOutputTemplate =
+        "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} | {Level,-8} | Thread:{ThreadId} | {SourceContext} | {Message:lj}{NewLine}{Exception}";
+#endif
 
     public static Level CurrentLevel => FromSerilogLevel(_levelSwitch.MinimumLevel);
 
@@ -90,7 +93,7 @@ public static class Logger
         {
             Directory.CreateDirectory(logDir);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             fileLoggingAvailable = false;
             Console.Error.WriteLine(
@@ -98,11 +101,6 @@ public static class Logger
                 "File logging will be disabled.");
         }
 
-#if DEBUG
-        const string activeTemplate = OutputTemplateWithLocation;
-#else
-        const string activeTemplate = OutputTemplate;
-#endif
 
         var config = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(_levelSwitch)
@@ -111,13 +109,14 @@ public static class Logger
             .Enrich.WithCallerInfo(
                 includeFileInfo: true,
                 assemblyPrefix: "ImDotNet")
-            .WriteTo.Console(outputTemplate: activeTemplate);
+            .WriteTo.Console(outputTemplate: ActiveOutputTemplate, formatProvider: CultureInfo.InvariantCulture);
 
         if (fileLoggingAvailable)
         {
             config.WriteTo.File(
                 path: logPath,
-                outputTemplate: activeTemplate,
+                outputTemplate: ActiveOutputTemplate,
+                formatProvider: CultureInfo.InvariantCulture,
                 rollOnFileSizeLimit: true,
                 fileSizeLimitBytes: MaxLogFileSize,
                 retainedFileCountLimit: RetainedLogCount,

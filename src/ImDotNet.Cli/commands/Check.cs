@@ -10,7 +10,7 @@ public sealed class CheckCommand : Command<GlobalSettings>
 
     public override int Execute(CommandContext context, GlobalSettings settings)
     {
-        Logger.Get(typeof(CheckCommand)).Information(OkMessage);
+        Logger.Get<CheckCommand>().Information(OkMessage);
         AnsiConsole.MarkupLine($"[green]{OkMessage}[/]");
         return 0;
     }

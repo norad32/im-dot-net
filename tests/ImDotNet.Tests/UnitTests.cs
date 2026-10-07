@@ -12,12 +12,18 @@ namespace ImDotNet.Tests;
 public sealed class AboutTests
 {
     [Fact]
+    public void Main_Should_ThrowArgumentNullException_If_ArgumentsAreNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => ImDotNet.Cli.Program.Main(null!));
+    }
+
+    [Fact]
     public void Description_Should_IncludeAppNameAndVersion()
     {
         string description = About.Description();
 
-        Assert.Contains(About.AppName, description);
-        Assert.Contains(About.Version, description);
+        Assert.Contains(About.AppName, description, StringComparison.Ordinal);
+        Assert.Contains(About.Version, description, StringComparison.Ordinal);
     }
 }
 
@@ -70,6 +76,12 @@ public sealed class LevelParserTests
         Assert.Equal(Level.DEBUG, LevelParser.Resolve("DEBUG", "ERROR"));
     }
 
+    [Fact]
+    public void Parse_Should_ThrowArgumentNullException_If_TextIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => LevelParser.Parse(null!));
+    }
+
     [Theory]
     [InlineData("CRITICAL")]
     [InlineData("TRACE")]
@@ -89,6 +101,14 @@ public sealed class LevelParserTests
 public sealed class GuiSinkTests
 {
     private static readonly DateTimeOffset Timestamp = new(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
+
+    [Fact]
+    public void Emit_Should_ThrowArgumentNullException_If_LogEventIsNull()
+    {
+        var sink = new GuiSink();
+
+        Assert.Throws<ArgumentNullException>(() => sink.Emit(null!));
+    }
 
     [Fact]
     public void Drain_Should_ReturnEmptyList_If_NoEntriesWereEmitted()
@@ -187,7 +207,7 @@ public sealed class GuiSinkTests
         var entry = Assert.Single(sink.Drain());
         Assert.Equal("/src/file.cs", entry.File);
         Assert.Equal(42, entry.Line);
-        Assert.Contains("(file.cs:42)", entry.Formatted);
+        Assert.Contains("(file.cs:42)", entry.Formatted, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -204,7 +224,7 @@ public sealed class GuiSinkTests
         var entry = Assert.Single(sink.Drain());
         Assert.Null(entry.File);
         Assert.Null(entry.Line);
-        Assert.DoesNotContain(".cs:", entry.Formatted);
+        Assert.DoesNotContain(".cs:", entry.Formatted, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -247,7 +267,7 @@ public sealed class GuiSinkTests
         var exception = new InvalidOperationException("Failure");
         sink.Emit(CreateEventWithException(LogEventLevel.Error, "Failed", exception));
 
-        Assert.Contains("Failure", Assert.Single(sink.Drain()).Exception);
+        Assert.Contains("Failure", Assert.Single(sink.Drain()).Exception, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -340,6 +360,12 @@ public sealed class LogPanelStateTests
     }
 
     [Fact]
+    public void Controller_Should_ThrowArgumentNullException_If_WindowIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => new Controller(null!, null!, null!));
+    }
+
+    [Fact]
     public void MainPanel_Should_Initialize_If_StateAndCallbackAreProvided()
     {
         var state = new LogPanelState();
@@ -400,7 +426,7 @@ public sealed class LoggerTests
     public void Get_Should_ReturnLogger_If_TypeIsProvided()
     {
         Assert.NotNull(Logger.Get<LoggerTests>());
-        Assert.NotNull(Logger.Get(typeof(LoggerTests)));
+        Assert.NotNull(Logger.Get<LoggerTests>());
     }
 
     private sealed class IsolatedLoggerEnvironment : IDisposable
@@ -453,7 +479,7 @@ public sealed class CheckCommandTests
 
         try
         {
-            Assert.Equal(0, global::Program.Main(["check"]));
+            Assert.Equal(0, ImDotNet.Cli.Program.Main(["check"]));
         }
         finally
         {
@@ -556,8 +582,8 @@ public sealed class StateTests : IDisposable
         state.Save();
 
         string contents = File.ReadAllText(ConfigPath);
-        Assert.Contains("show_log_panel=True", contents);
-        Assert.Contains("log_panel_height_fraction=0.625", contents);
+        Assert.Contains("show_log_panel=True", contents, StringComparison.Ordinal);
+        Assert.Contains("log_panel_height_fraction=0.625", contents, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -593,7 +619,7 @@ public sealed class StateTests : IDisposable
 
             state.Save();
 
-            Assert.Contains("log_panel_height_fraction=0.625", File.ReadAllText(ConfigPath));
+            Assert.Contains("log_panel_height_fraction=0.625", File.ReadAllText(ConfigPath), StringComparison.Ordinal);
         }
         finally
         {

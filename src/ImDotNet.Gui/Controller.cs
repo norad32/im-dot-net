@@ -28,6 +28,10 @@ public sealed class Controller : IDisposable
 
     public Controller(GL gl, IWindow window, IInputContext input)
     {
+        ArgumentNullException.ThrowIfNull(gl);
+        ArgumentNullException.ThrowIfNull(window);
+        ArgumentNullException.ThrowIfNull(input);
+
         _gl = gl;
         _window = window;
         _input = input;
@@ -84,8 +88,8 @@ public sealed class Controller : IDisposable
     {
         var io = ImGui.GetIO();
 
-        // Only use the first mouse — multiple mice would overwrite each other anyway
-        var mouse = _input.Mice.FirstOrDefault();
+        // Only use the first mouse - multiple mice would overwrite each other anyway
+        var mouse = _input.Mice.Count > 0 ? _input.Mice[0] : null;
         if (mouse is null) return;
 
         io.MousePos = new Vector2(mouse.Position.X, mouse.Position.Y);
@@ -144,7 +148,7 @@ public sealed class Controller : IDisposable
         var imk = TranslateKey(key);
         if (imk != ImGuiKey.None) io.AddKeyEvent(imk, down);
 
-        // Modifier events must be sent for both down AND up — no if (down) guard
+        // Modifier events must be sent for both down AND up - no if (down) guard
         if (key is Key.ControlLeft or Key.ControlRight) io.AddKeyEvent(ImGuiKey.ModCtrl, down);
         if (key is Key.ShiftLeft or Key.ShiftRight) io.AddKeyEvent(ImGuiKey.ModShift, down);
         if (key is Key.AltLeft or Key.AltRight) io.AddKeyEvent(ImGuiKey.ModAlt, down);
@@ -299,7 +303,7 @@ public sealed class Controller : IDisposable
         _gl.AttachShader(_shader, frag);
         _gl.LinkProgram(_shader);
         _gl.GetProgram(_shader, ProgramPropertyARB.LinkStatus, out int linked);
-        if (linked == 0) throw new Exception($"ImGui shader link failed: {_gl.GetProgramInfoLog(_shader)}");
+        if (linked == 0) throw new InvalidOperationException($"ImGui shader link failed: {_gl.GetProgramInfoLog(_shader)}");
         _gl.DetachShader(_shader, vert); _gl.DeleteShader(vert);
         _gl.DetachShader(_shader, frag); _gl.DeleteShader(frag);
 
@@ -335,7 +339,7 @@ public sealed class Controller : IDisposable
         _gl.ShaderSource(s, src);
         _gl.CompileShader(s);
         _gl.GetShader(s, ShaderParameterName.CompileStatus, out int ok);
-        if (ok == 0) throw new Exception($"Shader compile ({type}): {_gl.GetShaderInfoLog(s)}");
+        if (ok == 0) throw new InvalidOperationException($"Shader compile ({type}): {_gl.GetShaderInfoLog(s)}");
         return s;
     }
 

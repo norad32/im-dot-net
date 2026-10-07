@@ -12,7 +12,7 @@ public sealed class MainPanel
 
     public MainPanel(LogPanelState logPanelState, Action onClose)
     {
-        _log = Logger.Get(typeof(MainPanel));
+        _log = Logger.Get<MainPanel>();
         _logPanelState = logPanelState;
         _onClose = onClose;
     }
@@ -27,7 +27,7 @@ public sealed class MainPanel
         ImGui.Text("- Add panels, menus, docking, etc.");
         ImGui.Spacing();
 
-        if (ImGui.Button("Show Logs (" + LogPanel.TOGGLE_KEY + ")"))
+        if (ImGui.Button("Show Logs (" + LogPanel.ToggleKey + ")"))
             _logPanelState.Visible = !_logPanelState.Visible;
 
         ImGui.SameLine();

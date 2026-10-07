@@ -20,7 +20,7 @@ public class State
         return Path.Combine(dir, "gui_state.ini");
     }
 
-    public bool ShowLogPanel { get; set; } = false;
+    public bool ShowLogPanel { get; set; }
     public float LogPanelHeightFraction { get; set; } = 0.333f;
 
     public void Save()

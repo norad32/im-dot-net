@@ -1,3 +1,4 @@
+using System.Globalization;
 using Serilog.Core;
 using Serilog.Events;
 
@@ -10,7 +11,7 @@ public sealed class GuiSink : ILogEventSink
 
     public static GuiSink Instance { get; } = new();
 
-    public List<LogEntry> Drain()
+    public IReadOnlyList<LogEntry> Drain()
     {
         lock (_lock)
         {
@@ -28,6 +29,8 @@ public sealed class GuiSink : ILogEventSink
 
     public void Emit(LogEvent logEvent)
     {
+        ArgumentNullException.ThrowIfNull(logEvent);
+
         var loggerName = logEvent.Properties.TryGetValue("SourceContext", out var sc)
             ? sc.ToString().Trim('"')
             : "root";
@@ -54,7 +57,7 @@ public sealed class GuiSink : ILogEventSink
             Timestamp: logEvent.Timestamp.DateTime,
             Level: MapLevel(logEvent.Level),
             Logger: loggerName,
-            Message: logEvent.RenderMessage(),
+            Message: logEvent.RenderMessage(CultureInfo.InvariantCulture),
             Exception: logEvent.Exception?.ToString(),
             ThreadId: threadId,
             File: hasLocation ? rawFile : null,

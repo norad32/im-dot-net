@@ -1,0 +1,14 @@
+root = true
+
+[*.cs]
+dotnet_diagnostic.CA1062.severity = error
+
+[tests/**/*.cs]
+dotnet_diagnostic.CA1515.severity = none
+dotnet_diagnostic.CA1707.severity = none
+
+[src/ImDotNet.Cli/**/*.cs]
+dotnet_diagnostic.CA1515.severity = none
+
+[src/ImDotNet.Cli/Program.cs]
+dotnet_diagnostic.CA1515.severity = none
