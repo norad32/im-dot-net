@@ -5,12 +5,18 @@ namespace ImDotNet.Gui;
 
 public class State
 {
-    private static string ConfigPath()
+    private readonly string _configPath;
+
+    public State(string? configPath = null)
+    {
+        _configPath = configPath ?? GetDefaultConfigPath();
+    }
+
+    private static string GetDefaultConfigPath()
     {
         string dir = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ImDotNet")
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "ImDotNet");
-        Directory.CreateDirectory(dir);
         return Path.Combine(dir, "gui_state.ini");
     }
 
@@ -19,19 +25,23 @@ public class State
 
     public void Save()
     {
+        string? directory = Path.GetDirectoryName(_configPath);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+
         var lines = new[]
         {
             "[gui]",
             $"show_log_panel={ShowLogPanel}",
             $"log_panel_height_fraction={LogPanelHeightFraction.ToString(CultureInfo.InvariantCulture)}"
         };
-        File.WriteAllLines(ConfigPath(), lines);
+        File.WriteAllLines(_configPath, lines);
     }
 
-    public static State Load()
+    public static State Load(string? configPath = null)
     {
-        var state = new State();
-        string path = ConfigPath();
+        string path = configPath ?? GetDefaultConfigPath();
+        var state = new State(path);
         if (!File.Exists(path)) return state;
         foreach (var line in File.ReadAllLines(path))
         {

@@ -6,6 +6,6 @@ namespace ImDotNet.Cli.Commands;
 public class GlobalSettings : CommandSettings
 {
     [CommandOption("-l|--log-level <LEVEL>")]
-    [Description("Set log level (name or number): CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET or 50/40/30/20/10/0.")]
+    [Description("Set log level (name or number): FATAL, ERROR, WARNING, INFO, DEBUG, NOTSET or 50/40/30/20/10/0.")]
     public string? LogLevelText { get; set; }
 }

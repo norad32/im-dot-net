@@ -117,7 +117,7 @@ public sealed class AppWindow : IDisposable
 
         ImGui.End();
 
-    s    _logPanel.Draw();
+        _logPanel.Draw();
         _controller!.Render();
     }
 
